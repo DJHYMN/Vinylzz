@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 8080;
 
 // --- paths / dirs ------------------------------------------------------------
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = path.dirname(__filename);
+const __dirname = path.dirname(__filename);
 const PUBLIC_DIR = path.join(__dirname, 'public');
 
 // ✅ NEW: allow env override for uploads (use /tmp/uploads on Render Free)
@@ -153,7 +153,47 @@ app.get('/api/records', async (req, res) => {
   }
 });
 
-// (optional) fallback: show a tiny landing if no index.html present
+// --- TEMP: one-time DB init (protect with token) ----------------------------
+app.post('/admin/init', async (req, res) => {
+  const token = req.get('x-init-token') || req.query.token;
+  if (!process.env.INIT_TOKEN || token !== process.env.INIT_TOKEN) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+  try {
+    await pool.query(`
+      create table if not exists records (
+        id serial primary key,
+        image_url text not null,
+        artist text,
+        title text,
+        label text,
+        catno text,
+        barcode text,
+        created_at timestamptz default now()
+      );
+
+      create table if not exists price_estimates (
+        id serial primary key,
+        record_id int references records(id) on delete cascade,
+        source text,
+        lowest_price numeric,
+        median_price numeric,
+        estimated_price numeric,
+        extras jsonb,
+        created_at timestamptz default now()
+      );
+
+      create index if not exists idx_price_estimates_record_id_created
+        on price_estimates (record_id, created_at desc);
+    `);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('admin/init failed', e);
+    res.status(500).json({ error: 'init_failed', detail: String(e) });
+  }
+});
+
+// (optional) fallback: show a tiny landing if no index.html present ----------
 app.get('/', (req, res, next) => {
   const indexPath = path.join(PUBLIC_DIR, 'index.html');
   if (fs.existsSync(indexPath)) return next(); // static middleware will serve it
@@ -170,7 +210,7 @@ app.get('/', (req, res, next) => {
   `);
 });
 
-// --- listen ------------------------------------------------------------------
+// --- listen -----------------------------------------------------------------
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`web listening on http://localhost:${PORT}`);
 });
