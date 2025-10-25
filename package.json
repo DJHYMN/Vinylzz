@@ -1,0 +1,39 @@
+{
+  "name": "vinylzz",
+  "version": "1.0.0",
+  "description": "Cloud-ready vinyl cataloger with Express, BullMQ, and PostgreSQL",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "worker": "node worker.js",
+    "dev": "nodemon server.js",
+    "lint": "eslint ."
+  },
+  "type": "module",
+  "keywords": [
+    "vinyl",
+    "catalog",
+    "express",
+    "postgres",
+    "bullmq",
+    "redis",
+    "imboxo"
+  ],
+  "author": "DJ Hymn",
+  "license": "ISC",
+  "dependencies": {
+    "bullmq": "^5.61.2",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "ioredis": "^5.8.2",
+    "multer": "^2.0.2",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "eslint": "^9.11.1",
+    "nodemon": "^3.1.4"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

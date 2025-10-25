@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Vinylzz — Test Console</title>
+  <style>
+    :root { --bg:#0b0b10; --card:#141421; --muted:#9aa0a6; --violet:#7c3aed; --ok:#22c55e; --warn:#f59e0b; --err:#ef4444; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto; background:var(--bg); color:#e5e7eb; }
+    .wrap { max-width:980px; margin:40px auto; padding:0 16px; }
+    .card { background:var(--card); border:1px solid #1f1f2e; border-radius:16px; padding:20px; box-shadow:0 6px 24px rgba(0,0,0,.35); }
+    h1 { margin:0 0 8px; font-size:22px; }
+    h2 { margin:24px 0 8px; font-size:16px; color:#cbd5e1; }
+    .row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    label { display:block; font-weight:600; margin:8px 0 6px; color:#cbd5e1; }
+    input[type="text"], input[type="url"] { width:100%; padding:10px 12px; border-radius:10px; border:1px solid #27273a; background:#0f0f16; color:#e5e7eb; }
+    input[type="file"] { width:100%; }
+    button { cursor:pointer; border:0; padding:10px 14px; border-radius:12px; font-weight:700; }
+    .btn { background:var(--violet); color:white; }
+    .btn:disabled { opacity:.6; cursor:not-allowed; }
+    .muted { color:var(--muted); }
+    .status { font-weight:700; }
+    .ok{ color:var(--ok); } .warn{ color:var(--warn); } .err{ color:var(--err); }
+    .grid { display:grid; grid-template-columns: 240px 1fr; gap:16px; align-items:start; }
+    .imgbox { width:100%; aspect-ratio:1/1; background:#0f0f16; border:1px dashed #2b2b3f; border-radius:12px; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    img.preview { width:100%; height:100%; object-fit:cover; }
+    pre { background:#0f0f16; border:1px solid #27273a; color:#e5e7eb; padding:12px; border-radius:12px; overflow:auto; max-height:420px; }
+    .row2 { display:flex; gap:8px; align-items:center; }
+    .pill { border:1px solid #2b2b3f; padding:6px 10px; border-radius:999px; }
+    a { color:#a78bfa; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Vinylzz — Test Console</h1>
+      <div class="row2">
+        <div id="health" class="status muted">checking health…</div>
+        <div class="pill"><a href="/uploads/" target="_blank">/uploads</a></div>
+        <div class="pill"><a href="/api/records" target="_blank">/api/records</a></div>
+      </div>
+
+      <h2>Cover & Metadata</h2>
+      <div class="grid">
+        <div>
+          <div class="imgbox"><span class="muted" id="dropNote">Choose or drop a file</span><img id="preview" class="preview" hidden></div>
+        </div>
+        <div>
+          <label>Upload cover (JPEG/PNG)</label>
+          <input id="file" type="file" accept="image/*">
+          <label style="margin-top:12px">…or paste a public Image URL</label>
+          <input id="imageUrl" type="url" placeholder="https://example.com/cover.jpg">
+
+          <div class="row" style="margin-top:12px">
+            <div>
+              <label>Artist</label>
+              <input id="artist" type="text" placeholder="Daft Punk" value="">
+            </div>
+            <div>
+              <label>Title</label>
+              <input id="title" type="text" placeholder="Discovery" value="">
+            </div>
+          </div>
+
+          <div style="margin-top:16px; display:flex; gap:8px;">
+            <button id="run" class="btn">Create → Estimate</button>
+            <button id="reset">Reset</button>
+          </div>
+
+          <div style="margin-top:10px" class="muted">Tip: You can upload a file <em>or</em> use a public image URL.</div>
+        </div>
+      </div>
+
+      <h2>Result</h2>
+      <div class="row">
+        <div>
+          <div>ID: <span id="rid" class="pill muted">—</span></div>
+          <div>Status: <span id="status" class="status muted">Idle</span></div>
+          <div>Image URL: <span id="imgout" class="muted">—</span></div>
+        </div>
+        <div>
+          <pre id="json">{}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+const $ = (id)=>document.getElementById(id);
+const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+
+async function checkHealth(){
+  try{
+    const r = await fetch('/health');
+    const j = await r.json();
+    $('health').textContent = `health: ok (t=${j.t||'—'})`;
+    $('health').className = 'status ok';
+  }catch(e){
+    $('health').textContent = 'health: error';
+    $('health').className = 'status err';
+  }
+}
+checkHealth();
+
+const file = $('file'), imageUrl = $('imageUrl'), artist=$('artist'), title=$('title');
+const preview=$('preview'), dropNote=$('dropNote');
+
+file.addEventListener('change', ()=>{
+  const f=file.files?.[0];
+  if(!f){ preview.hidden=true; dropNote.hidden=false; return; }
+  preview.src = URL.createObjectURL(f);
+  preview.onload = ()=> URL.revokeObjectURL(preview.src);
+  preview.hidden=false; dropNote.hidden=true;
+});
+
+$('reset').onclick = ()=>{
+  file.value=''; imageUrl.value=''; artist.value=''; title.value='';
+  $('rid').textContent='—'; $('status').textContent='Idle'; $('status').className='status muted';
+  $('json').textContent='{}'; preview.hidden=true; dropNote.hidden=false; $('imgout').textContent='—';
+};
+
+$('run').onclick = async ()=>{
+  try{
+    $('run').disabled=true; $('status').textContent='Uploading/Using image…'; $('status').className='status warn';
+    let url = imageUrl.value.trim();
+
+    // if no URL, but we have a file, upload it
+    if(!url && file.files?.length){
+      const fd = new FormData(); fd.append('file', file.files[0]);
+      const up = await fetch('/api/upload', { method:'POST', body:fd });
+      if(!up.ok) throw new Error('upload failed');
+      url = (await up.json()).url;
+    }
+    if(!url) throw new Error('Provide a file or an image URL');
+
+    $('imgout').textContent = url;
+
+    // create record
+    $('status').textContent='Creating record…';
+    const body = { image_url:url, artist:artist.value.trim()||'Unknown', title:title.value.trim()||'Untitled' };
+    const r1 = await fetch('/api/records', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify(body) });
+    const j1 = await r1.json();
+    if(!r1.ok) throw new Error('create failed: '+(j1?.error||r1.status));
+    const id = j1.id; $('rid').textContent=id;
+
+    // enqueue estimate
+    $('status').textContent='Estimating…';
+    const r2 = await fetch(`/api/records/${id}/estimate`, { method:'POST' });
+    if(!r2.ok) throw new Error('enqueue failed');
+
+    // poll
+    let code=204, tries=0;
+    while(code!==200 && tries<60){
+      await sleep(1500);
+      const p = await fetch(`/api/records/${id}/estimate`, { method:'GET' });
+      code = p.status;
+      $('status').textContent = code===200 ? 'Done' : `Processing (${code})…`;
+      $('status').className = 'status ' + (code===200?'ok':'warn');
+      if(code===200){
+        const j = await p.json();
+        $('json').textContent = JSON.stringify(j, null, 2);
+        break;
+      }
+      tries++;
+    }
+    if(code!==200) throw new Error('timeout waiting for estimate');
+  }catch(err){
+    $('status').textContent = 'Error';
+    $('status').className = 'status err';
+    $('json').textContent = JSON.stringify({ error:String(err) }, null, 2);
+  }finally{
+    $('run').disabled=false;
+  }
+};
+</script>
+</body>
+</html>
+
