@@ -20,10 +20,9 @@ services:
         sync: false
       - key: DATABASE_SSL
         value: "true"
-    disk:
-      name: uploads
-      mountPath: /opt/render/project/src/uploads
-      sizeGB: 1
+      # ✅ uploads live in ephemeral /tmp on Free
+      - key: UPLOAD_DIR
+        value: /tmp/uploads
 
   - type: worker
     name: vinylzz-worker
@@ -45,3 +44,4 @@ services:
         sync: false
       - key: DATABASE_SSL
         value: "true"
+
